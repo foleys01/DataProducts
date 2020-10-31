@@ -1,0 +1,51 @@
+---
+title: "SWF_Week2"
+author: "Shawn W. Foley"
+date: "10/30/2020"
+output: html_document
+---
+
+```{r setup, echo=F,include=FALSE,error=FALSE,warning=FALSE,message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## October 30th, 2020
+### 2016 Votes per state
+
+```{r,echo=F,message=F}
+library(leaflet)
+library(tidyr)
+library(dplyr)
+library(colorspace)
+setwd('~/Desktop/Coursera/Developing Data Products/Week 2/')
+
+stateLoc <- read.table('stateCenters.txt',header=T,as.is=T,sep='\t')
+stateLoc$lng <- -1 * as.numeric(stateLoc$lng)
+
+votes <- read.table('1976-2016-president.tab',header=T,as.is=T,sep='\t')
+votes <- votes[votes$year == 2016 & votes$party %in% c('democrat','republican'), 
+               c('state','party','candidatevotes')]
+votes <- votes[!duplicated(apply(votes[,1:2],1,paste,collapse='-')),]
+votesWide <- spread(votes,party,candidatevotes)
+votesWide <- merge(votesWide,stateLoc,by=1)
+#votes <- merge(votes,stateLoc,by=1)
+votesWide$total <- votesWide$republican + votesWide$democrat
+votesWide$R <- votesWide$republican / votesWide$total
+votesWide$B <- votesWide$democrat / votesWide$total
+votesWide$color <- apply(votesWide,1,function(x)
+  rgb(as.numeric(x['R']),0,as.numeric(x['B'])))
+votesWide[,-c(1,ncol(votesWide))] <- apply(votesWide[,-c(1,ncol(votesWide))]
+                                           ,2,as.numeric)
+
+map <- votesWide %>% leaflet() %>% 
+  addTiles() %>% 
+  addCircleMarkers(lng=votesWide$lng,lat=votesWide$lat,radius=votesWide$total/5E5,
+                   stroke=F,fillOpacity=0.7,color=votesWide$color,
+                   popup=apply(votesWide[,c('democrat','republican')],1,function(x)
+                     paste(c(paste0('Democrat: ',x[1]),
+                             paste0('Republican: ',x[2])),collapse='<br>'))) %>%
+  addLegend(position='topleft',colors=c(rgb(1,0,0),rgb(0.5,0,0.5),rgb(0,0,0.5)),
+            labels=c('Republican','Split','Democrat'))
+
+map
+```
